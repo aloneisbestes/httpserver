@@ -182,6 +182,38 @@ HttpConn::LINE_STATUS HttpConn::parseLine() {
     char tmp;
     for (;m_checked_idx < m_read_idx; ++m_checked_idx) {    
         // m_check_idx 当前 m_read_buf 中读取的位置,m_read_idx当前 m_read_buf 的长度
+        tmp = m_read_buf[m_checked_idx];
+        if (tmp == '\r') {
+            // 判断是否已经被读取过
+            if ((m_checked_idx + 1) == m_read_idx) { // 表示已经被读取过了
+                return LINE_OPEN;
+            } else if (m_read_buf[m_checked_idx + 1] == '\n') {
+                // 表示一行读取完毕
+                m_read_buf[m_checked_idx++] = '\0';
+                m_read_buf[m_checked_idx++] = '\0';
+                return LINE_OK;
+            }
+            return LINE_BAD;
+        } else if (tmp == '\n') {
+            if (m_checked_idx > 1 && (m_read_buf[m_checked_idx - 1] == '\r')) {
+                // 保证最后两个字符为 '\0' 和 '\r'
+                m_read_buf[m_checked_idx-1] = '\0';
+                m_read_buf[m_checked_idx++] = '\0';
+            }
+            return LINE_BAD;
+        }
+    }
+    return LINE_OPEN;
+}
 
+// 循环读取客户数据，直到无数据可读或对方关闭连接
+// 非阻塞ET工作模式下，需要一次性将数据读完
+bool HttpConn::readOnce() {
+    if (m_read_idx >= READ_BUFFER_SIZE) // 
+        return false;
+    
+    if (m_TRIGMode == 0) {
+        // 表示为 EPOLLIN 模式
+        
     }
 }

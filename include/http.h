@@ -50,9 +50,9 @@ public:
     };
 
     enum LINE_STATUS {
-        LINE_OK=0,
-        LINE_BAD,
-        LINE_OPEN
+        LINE_OK=0,      // 读取成功
+        LINE_BAD,       // 读取是坏的
+        LINE_OPEN       // 已经被读取过了
     };
 
 public:
