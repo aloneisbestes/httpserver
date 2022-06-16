@@ -33,7 +33,7 @@ public:
     };
 
     enum CHECK_STATE {
-        CHECK_STATE_REQUESTLINE=0,
+        CHECK_STATE_REQUESTLINE=0, // 分析请求行状态
         CHECK_STATE_HEADER,
         CHECK_STATE_CONTENT,
     };
@@ -124,44 +124,45 @@ private:
     bool addBlankLine();
 
 public:
-    static int m_epollfd;           // epoll 描述符
-    static int m_user_count;        // 用户计数
-    MYSQL *m_sql;
-    int m_state;                    // 是否为读或写，读为0，写为1
+    static int  m_epollfd;           // epoll 描述符
+    static int  m_user_count;        // 用户计数
+    int         m_state;                    // 是否为读或写，读为0，写为1
+    MYSQL       *m_sql;
 
 private:
-    int m_sockfd;
-    sockaddr_in m_address;
-    char m_read_buf[READ_BUFFER_SIZE];
-    int m_read_idx;         // 当前 read_buffer 所在的索引
-    int m_checked_idx;      // ?
-    int m_start_line;       // ?
-    char m_write_buf[WRITE_BUFFER_SIZE];
-    CHECK_STATE m_check_state;
-    METHOD m_method;        //请求类型
-    char m_real_file[FILENAME_LEN];     // 读取文件
-    char *m_url;
-    char *m_version;
-    char *m_host;
-    int m_content_length;
-    bool m_linger;
-    char *m_file_address;   // ?
-    struct stat m_file_stat;        // 文件类型
-    struct iovec m_iv[2];           // ? #include <sys/uio.h> 建议百度 iovec
-    int m_iv_count;
-    int cgi;    // 是否启用 POST
-    char *m_string;  // 存储请求头数据
-    int bytes_to_send;  // 发送的数据字节数 
-    int bytes_have_send;    // 已发送的字节数
-    char *doc_root;         // ?
+    int             m_sockfd;
+    sockaddr_in     m_address;
+    char            m_read_buf[READ_BUFFER_SIZE];
+    int             m_read_idx;         // 当前 read_buffer 的长度索引,也就是现在的长度
+    int             m_checked_idx;      // ?
+    int             m_start_line;       // ?
+    char            m_write_buf[WRITE_BUFFER_SIZE];
+    int             m_write_idx;
+    CHECK_STATE     m_check_state;
+    METHOD          m_method;        //请求类型
+    char            m_real_file[FILENAME_LEN];     // 读取文件
+    char            *m_url;
+    char            *m_version;
+    char            *m_host;
+    int             m_content_length;
+    bool            m_linger;
+    char            *m_file_address;   // ?
+    struct stat     m_file_stat;        // 文件类型
+    struct iovec    m_iv[2];           // ? #include <sys/uio.h> 建议百度 iovec
+    int             m_iv_count;
+    int             m_cgi;    // 是否启用 POST
+    char            *m_string;  // 存储请求头数据
+    int             m_bytes_to_send;  // 发送的数据字节数 
+    int             m_bytes_have_send;    // 已发送的字节数
+    char            *m_doc_root;         // http路径根目录
 
-    std::map<string, string> m_users;   // 用来存储用户名和密码
-    int m_TRIGMode;     // ?
-    int m_close_log;    // 是否开启日志
+    std::map<string, string>    m_users;   // 用来存储用户名和密码
+    int                         m_TRIGMode;     // epoll使用的模式
+    int                         m_close_log;    // 是否开启日志
 
-    char sql_user[100];
-    char sql_passwd[100];
-    char sql_name[100];
+    char m_sql_user[100];
+    char m_sql_passwd[100];
+    char m_sql_name[100];
 };
 
 #endif __HTTP_H__
