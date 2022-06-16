@@ -41,7 +41,7 @@ public:
     enum HTTP_CODE {    // http 返回码
         NO_REQUEST,
         GET_REQUEST,
-        BAD_REQUEST,
+        BAD_REQUEST,    // 坏的请求
         NO_RESOURCE,
         FORBIDDEN_REQUEST,
         FILE_REQUEST,
@@ -154,6 +154,7 @@ private:
     char            *m_string;  // 存储请求头数据
     int             m_bytes_to_send;  // 发送的数据字节数 
     int             m_bytes_have_send;    // 已发送的字节数
+    int             m_bytes_read;           // 已接受字节数
     char            *m_doc_root;         // http路径根目录
 
     std::map<string, string>    m_users;   // 用来存储用户名和密码

@@ -170,6 +170,7 @@ void HttpConn::init() {
     m_state = 0;
     m_timer_falg = 0;
     m_improv = 0;
+    m_bytes_read = 0;
 
     memset(m_read_buf, 0, READ_BUFFER_SIZE);
     memset(m_write_buf, 0, WRITE_BUFFER_SIZE);
@@ -214,6 +215,79 @@ bool HttpConn::readOnce() {
     
     if (m_TRIGMode == 0) {
         // 表示为 EPOLLIN 模式
-        
+        m_bytes_read = recv(m_sockfd, m_read_buf+m_read_idx, READ_BUFFER_SIZE-m_read_idx, 0);
+        m_read_idx = m_bytes_read;
+
+        if (m_bytes_read <= 0) 
+            return false;
+    } else {
+        // 表示为 EPOLLET 模式
+        while (true) {  // 一次性读取所有数据
+            m_bytes_read = recv(m_sockfd, m_read_buf+m_read_idx, READ_BUFFER_SIZE-m_read_idx, 0);
+            if (m_bytes_read == -1) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) 
+                    break;
+                return false;
+            } else if (m_bytes_read == 0) {
+                return false;
+            }
+
+            m_read_idx += m_bytes_read;
+        }
+        return true;
     }
+}
+
+// 解析http请求行，获得请求方法，目标url及http版本号
+HttpConn::HTTP_CODE HttpConn::parseRequestLine(char *text) {
+    m_url = strpbrk(text, " \t");
+    if (!m_url)     // 解析失败，没有 m_url
+        return BAD_REQUEST;
+    
+    *m_url++ = '\0';    // text首地址是请求方法，m_url首地址后面是 url 和版本号
+
+    // 记录请求方法
+    char *method = text;
+
+    if (strcasecmp(method, "GET") == 0) {
+        m_method = GET;
+    } else if (strcasecmp(method, "POST") == 0) {
+        m_method = POST;
+        m_cgi = 1;      // ?
+    } else {
+        return BAD_REQUEST;
+    }
+
+    // 获取url
+    m_url += strspn(m_url, " \t");
+
+    // 得到 http 版本所在位置
+    m_version = strpbrk(m_url, " \t");
+    if (m_version == nullptr) {
+        return BAD_REQUEST;
+    }
+    // 获取版本号
+    m_version += strspn(m_version, " \t");
+    // 判断版本号是否正确
+    if (strcasecmp(m_version, "HTTP/1.1") != 0) {
+        return BAD_REQUEST;
+    }
+
+    // 获取真正的 url, 判断 http
+    if (strncasecmp(m_url, "http://", 7) == 0) {
+        m_url += 7;
+        m_url = strchr(m_url, '/');     // 找到第一个/所在位置
+    }
+    // 获取真正的 url, 判断 https
+    if (strncasecmp(m_url, "https://", 8) == 0) {
+        m_url += 8;
+        m_url = strchr(m_url, '/');
+    }
+
+    // 判断是否正确的 url 
+    if (!m_url || m_url[0] != '/')
+        return BAD_REQUEST;
+
+    
+    
 }
