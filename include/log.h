@@ -55,7 +55,6 @@ public:
     static void *logTrheadRun(void *) {
         // 单例调用，内部的线程处理函数
         Log::getInstance()->asyncWriteLog();
-
         return (void *)nullptr;
     }
     

@@ -198,7 +198,6 @@ public:
         m_mutex.unlock();
         return true;
     }
-
 };
 
 #endif // __BLOCK_H__

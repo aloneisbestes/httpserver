@@ -117,7 +117,7 @@ public:
 
     // 解锁
     bool unlock() {
-        return pthread_mutex_unlock(&m_mutex);
+        return pthread_mutex_unlock(&m_mutex) == 0 ? true : false;
     }
 
     // 获取互斥锁

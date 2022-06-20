@@ -37,4 +37,7 @@
 #define WARN_TYPE               2
 #define INFO_TYPE               3
 
+/* url、version、host 的长度 */
+#define URL_SER_HOST_MAX        512
+
 #endif // __MACRO_H__

@@ -35,7 +35,7 @@ public:
     enum CHECK_STATE {
         CHECK_STATE_REQUESTLINE=0, // 分析请求行状态
         CHECK_STATE_HEADER,
-        CHECK_STATE_CONTENT,
+        CHECK_STATE_CONTENT,        // 请求内容状态
     };
 
     enum HTTP_CODE {    // http 返回码
@@ -64,7 +64,7 @@ public:
     /* 共有成员函数 */
     // 初始化函数
     void init(int sockfd, const sockaddr_in &addr, char *root, int TRIGMode, \
-              int close_log, const std::string &user, const std::string passwd, const std::string &sqlname);
+              int close_log, const std::string &user, const std::string &passwd, const std::string &sqlname);
     // 关闭连接
     void closeConn(bool real_close=true);
     // 主进程
@@ -75,7 +75,7 @@ public:
     // 写数据
     bool write();
     // 返回 sockaddr_in
-    sockaddr_in *getAddress() { }
+    sockaddr_in *getAddress() { return &m_address; }
     // 初始化 mysql 中存储的用户名和密码到程序
     void initMysqlResult(MysqlPool *conn_pool);
 
@@ -84,7 +84,8 @@ private:
     int m_timer_falg;     // 定时器标志
     int m_improv;
 
-private:
+public: // 临时使用public用来测试
+// private:
     /* 内部私有方法 */
     void init();
     // 读取数据进程
@@ -100,7 +101,7 @@ private:
     // 读取请求
     HTTP_CODE doRequest();
     // 获取一行
-    char *getLine() { }
+    char *getLine() { return  m_read_buf + m_start_line; }
     // 从状态机，用于分析出一行内容
     // 返回值为行的读取状态，有LINE_OK,LINE_BAD,LINE_OPEN
     LINE_STATUS parseLine();
@@ -145,7 +146,7 @@ private:
     char            *m_version;
     char            *m_host;
     int             m_content_length;
-    bool            m_linger;
+    bool            m_linger;           // 连接类型是否为 keep-alive
     char            *m_file_address;   // ?
     struct stat     m_file_stat;        // 文件类型
     struct iovec    m_iv[2];           // ? #include <sys/uio.h> 建议百度 iovec
@@ -166,4 +167,4 @@ private:
     char m_sql_name[100];
 };
 
-#endif __HTTP_H__
+#endif // __HTTP_H__
