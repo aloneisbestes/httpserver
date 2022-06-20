@@ -13,6 +13,12 @@ endif (T_DEBUG)
 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/test/bin)
 
+# 添加可使用 gdb 调试
+SET(CMAKE_BUILD_TYPE "Debug")
+SET(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g2 -ggdb")
+SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall")
+SET(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-pthread")
+
 ####
 # 生成可执行文件
 ####
@@ -28,6 +34,9 @@ add_executable(testComm testCommon.cpp ${NEED_SRC})
 # testMysqlPool
 add_executable(testMysqlPool testMysqlPool.cpp ${NEED_SRC})
 
+# testHttp
+add_executable(testHttp testHttp.cpp ${NEED_SRC} ../src/http.cpp)
+
 # 连接库
 target_link_libraries(testMysqlPool mysqlclient)
 target_link_libraries(testMysqlPool pthread)
@@ -37,3 +46,5 @@ target_link_libraries(test pthread)
 target_link_libraries(test mysqlclient)
 target_link_libraries(testExp pthread)
 target_link_libraries(testExp mysqlclient)
+target_link_libraries(testHttp pthread)
+target_link_libraries(testHttp mysqlclient)
