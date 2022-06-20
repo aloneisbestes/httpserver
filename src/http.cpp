@@ -31,6 +31,16 @@ int HttpConn::m_epollfd = -1;
 locker m_lock;  // 互斥锁
 map<string, string> users;
 
+HttpConn::HttpConn() {
+
+}
+
+HttpConn::~HttpConn() {
+    if (m_url)  delete m_url;
+
+    if (m_version) delete m_version;
+}
+
 // 初始化 mysql 中存储的用户名和密码到程序
 void HttpConn::initMysqlResult(MysqlPool *conn_pool) {
     // 从连接池中取出一个连接
@@ -130,7 +140,7 @@ void HttpConn::closeConn(bool real_close) {
 
 // 初始化函数
 void HttpConn::init(int sockfd, const sockaddr_in &addr, char *root, int TRIGMode, \
-                    int close_log, const string &user, const string passwd, const string &sqlname) {
+                    int close_log, const string &user, const string &passwd, const string &sqlname) {
     m_sockfd = sockfd;
     m_address = addr;
 
@@ -158,10 +168,7 @@ void HttpConn::init() {
     m_check_state = CHECK_STATE_REQUESTLINE;
     m_linger = false; 
     m_method = GET;
-    m_url = nullptr;
-    m_version = nullptr;
     m_content_length = 0;
-    m_host = nullptr;
     m_start_line = 0;
     m_checked_idx = 0;
     m_read_idx = 0;
@@ -171,6 +178,13 @@ void HttpConn::init() {
     m_timer_falg = 0;
     m_improv = 0;
     m_bytes_read = 0;
+
+    m_url = new char[URL_SER_HOST_MAX];
+    memset(m_url, 0, URL_SER_HOST_MAX);
+    m_version = new char[URL_SER_HOST_MAX];
+    memset(m_version, 0, URL_SER_HOST_MAX);
+    m_host = new char[URL_SER_HOST_MAX];
+    memset(m_host, 0, URL_SER_HOST_MAX);
 
     memset(m_read_buf, 0, READ_BUFFER_SIZE);
     memset(m_write_buf, 0, WRITE_BUFFER_SIZE);
@@ -197,9 +211,10 @@ HttpConn::LINE_STATUS HttpConn::parseLine() {
             return LINE_BAD;
         } else if (tmp == '\n') {
             if (m_checked_idx > 1 && (m_read_buf[m_checked_idx - 1] == '\r')) {
-                // 保证最后两个字符为 '\0' 和 '\r'
+                // 保证最后两个字符为 '\0' 
                 m_read_buf[m_checked_idx-1] = '\0';
                 m_read_buf[m_checked_idx++] = '\0';
+                return LINE_OK;
             }
             return LINE_BAD;
         }
@@ -244,7 +259,11 @@ HttpConn::HTTP_CODE HttpConn::parseRequestLine(char *text) {
     if (!m_url)     // 解析失败，没有 m_url
         return BAD_REQUEST;
     
-    *m_url++ = '\0';    // text首地址是请求方法，m_url首地址后面是 url 和版本号
+    char *tmp_url = strpbrk(text, " \t");
+    if (tmp_url == nullptr) // 解析失败，在请求中没有 url 
+        return BAD_REQUEST;
+    
+    *tmp_url++ = '\0';    // text首地址是请求方法，m_url首地址后面是 url 和版本号
 
     // 记录请求方法
     char *method = text;
@@ -259,35 +278,133 @@ HttpConn::HTTP_CODE HttpConn::parseRequestLine(char *text) {
     }
 
     // 获取url
-    m_url += strspn(m_url, " \t");
-
+    tmp_url += strspn(tmp_url, " \t");
+    DebugPrint("tmp_url: %s\n", tmp_url);
+    
     // 得到 http 版本所在位置
-    m_version = strpbrk(m_url, " \t");
-    if (m_version == nullptr) {
+    char *tmp_version = strpbrk(tmp_url, " \t");
+    DebugPrint("tmp_version: %s\n", tmp_version);
+
+    if (tmp_version == nullptr) {
         return BAD_REQUEST;
     }
+    *tmp_version++ = '\0';  // 找到版本号所在位置
+
     // 获取版本号
-    m_version += strspn(m_version, " \t");
+    tmp_version += strspn(tmp_version, " \t");
     // 判断版本号是否正确
-    if (strcasecmp(m_version, "HTTP/1.1") != 0) {
+    if (strcasecmp(tmp_version, "HTTP/1.1") != 0) {
         return BAD_REQUEST;
+    }
+    strcpy(m_version, tmp_version);
+    DebugPrint("real version: %s\n", m_version);
+
+    if (strncasecmp(tmp_url, "http://", 7) == 0) {
+        // 获取真正的 url, 判断 http
+        tmp_url += 7;
+        tmp_url = strchr(tmp_url, '/');     // 找到第一个/所在位置
+        strcpy(m_url, tmp_url);
+    } else if (strncasecmp(tmp_url, "https://", 8) == 0) {
+        // 获取真正的 url, 判断 https
+        tmp_url += 8;
+        tmp_url = strchr(tmp_url, '/');
+        strcpy(m_url, tmp_url);
+    } else {
+        strcpy(m_url, tmp_url);
     }
 
-    // 获取真正的 url, 判断 http
-    if (strncasecmp(m_url, "http://", 7) == 0) {
-        m_url += 7;
-        m_url = strchr(m_url, '/');     // 找到第一个/所在位置
-    }
-    // 获取真正的 url, 判断 https
-    if (strncasecmp(m_url, "https://", 8) == 0) {
-        m_url += 8;
-        m_url = strchr(m_url, '/');
-    }
 
     // 判断是否正确的 url 
-    if (!m_url || m_url[0] != '/')
+    if (strlen(m_url) == 0 || m_url[0] != '/')
         return BAD_REQUEST;
+    DebugPrint("real url: %s\n", m_url);
+    DebugPrint("real version: %s\n", m_version);
 
+    // 当 url 为 / 时显示主页面
+    if (strlen(m_url) == 1) 
+        strcat(m_url, "index.html");
     
-    
+    m_check_state = CHECK_STATE_HEADER; // 解析状态为头部
+    return NO_REQUEST;
+}
+
+// 解析http请求的一个头部信息
+HttpConn::HTTP_CODE HttpConn::parseHeaders(char *text) {
+    if (text[0] == '\0') {
+        if (m_content_length != 0) {
+            m_check_state = CHECK_STATE_CONTENT;    // 表示有 content 
+            return NO_REQUEST;
+        }
+
+        return GET_REQUEST; // 应该获取请求
+    } else if (strncasecmp(text, "Connection:", 11) == 0) {
+        // 获取连接类型
+        text += 11;
+        text += strspn(text, " \t");
+        if (strcasecmp(text, "keep-alive") == 0) {
+            m_linger = true;
+        }
+        DebugPrint("conn: %s\n", text);
+    } else if (strncasecmp(text, "Content-length:", 15) == 0) {
+        text += 15;
+        text += strspn(text, " \t");
+        m_content_length = atol(text);
+        DebugPrint("len: %d\n", m_content_length);
+    } else if (strncasecmp(text, "Host:", 5) == 0) {
+        text += 5;
+        text += strspn(text, " \t");
+        strcpy(m_host, text);
+        DebugPrint("host: %s\n", m_host);
+    } else {
+        LogInfo("oop!unknow header: %s", text);
+    }
+
+    return NO_REQUEST;
+}
+
+// 判断http请求是否被完整读入
+HttpConn::HTTP_CODE HttpConn::parseContent(char *text) {
+    if (m_read_idx >= (m_content_length + m_checked_idx)) {
+        text[m_content_length] = '\0';
+        m_string = text;
+        DebugPrint("parseContent: %s\n", text);
+        return GET_REQUEST;
+    }
+
+    return NO_REQUEST;
+}
+
+// 读取数据进程
+HttpConn::HTTP_CODE HttpConn::processRead() {
+    LINE_STATUS line_status = LINE_OK;
+    HTTP_CODE ret = NO_REQUEST;
+    char *text = nullptr;
+
+
+    while ((m_check_state == CHECK_STATE_CONTENT && line_status == LINE_OK) || ((line_status = parseLine()) == LINE_OK)) {
+        text = getLine();
+        m_start_line = m_checked_idx;       // 更新起始位置
+        LogInfo("%s", text);
+        switch (m_check_state) {
+            case CHECK_STATE_REQUESTLINE:    // 读取请求行，获取 url 和 版本号以及请求方式
+                ret = parseRequestLine(text);
+                if (ret == BAD_REQUEST)
+                    return BAD_REQUEST;
+                break;
+            case CHECK_STATE_HEADER:   //  解析请求头
+                ret = parseHeaders(text);
+                if (ret = BAD_REQUEST)
+                    return BAD_REQUEST;
+                else if (ret == GET_REQUEST)    // 继续获取请求
+                    return doRequest();
+                break;
+            case CHECK_STATE_CONTENT:
+                ret = parseContent(text);
+                line_status = LINE_OPEN;
+                break;
+            default:
+                return INTERNAL_ERROR;  // 否则发生错误
+        }
+    }
+    return NO_REQUEST;
 }

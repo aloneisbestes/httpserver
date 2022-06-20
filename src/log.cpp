@@ -70,6 +70,7 @@ void Log::init(const char *filename, bool isclose, int buffer_len, int line_max,
 
         // 初始化阻塞队列
         m_log_block = new BlockQueue<std::string>(block_max);
+        m_isasync = true;
     }
     
     // 初始化缓冲器大小及是否开启日志系统等等
